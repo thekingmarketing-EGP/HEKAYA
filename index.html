@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>حكاية نينجا | Hekaya Ninja</title>
+    <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;800&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Changa', sans-serif; touch-action: none; }
+        
+        #gameCanvas { 
+            display: block; width: 100%; height: 100vh; 
+            background: url('bg.jpg') no-repeat center center;
+            background-size: cover; 
+            background-color: #222; 
+        }
+        
+        /* طبقة الواجهة (UI) */
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .hud-top { display: flex; justify-content: space-between; padding: 20px; color: white; font-weight: 900; text-shadow: 2px 2px 0 #000; }
+        .score-box { font-size: 2.5rem; color: #ffeb3b; }
+        .timer-box { font-size: 2.5rem; color: #fff; }
+        .timer-warning { color: #ff5252; animation: blink 0.5s infinite; }
+        
+        #multiplierBadge { 
+            position: absolute; top: 80px; right: 20px; 
+            background: linear-gradient(45deg, #ff00cc, #333399);
+            padding: 5px 20px; border-radius: 20px; transform: rotate(-5deg);
+            font-size: 1.5rem; color: white; display: none; border: 2px solid white;
+        }
+
+        /* --- ستايل العلامة المائية داخل اللعب --- */
+        .watermark-container {
+            position: absolute;
+            bottom: 15px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between; /* يوزعهم واحد يمين وواحد شمال */
+            padding: 0 20px;
+            box-sizing: border-box;
+            opacity: 0.3; /* شفافية خفيفة جداً */
+            z-index: 5; 
+        }
+        
+        .wm-logo {
+            height: 70px; /* حجم اللوجو المائي */
+            width: auto;
+            filter: grayscale(30%); /* تقليل الألوان عشان ميسحبش العين */
+        }
+        /* تكبير لوجو المطعم شوية عن المطور */
+        .wm-logo.main { height: 90px; }
+
+        /* شاشات البداية والنهاية */
+        .screen { 
+            background: rgba(0,0,0,0.85); width: 100%; height: 100%; position: absolute; top: 0; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            z-index: 100; transition: opacity 0.3s;
+        }
+        
+        #startScreen { 
+            background: url('lol.jpg') no-repeat center center;
+            background-size: 100% 100%; 
+        }
+        #startScreen::before { content: ''; position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); z-index: -1; }
+
+        .hidden { opacity: 0; pointer-events: none; }
+        
+        h1 { color: #ff9800; font-size: 4rem; margin: 0; text-shadow: 4px 4px 0 #b71c1c; transform: rotate(-3deg); line-height: 1; }
+        p { color: #fff; font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; }
+        
+        .btn { 
+            background: linear-gradient(to bottom, #d32f2f, #b71c1c);
+            color: #fff; border: 2px solid #fff; padding: 15px 60px; 
+            font-size: 2rem; font-family: 'Changa', sans-serif; font-weight: 800; 
+            border-radius: 50px; cursor: pointer; pointer-events: auto;
+            box-shadow: 0 10px 0 #7f0000; transition: transform 0.1s;
+        }
+        .btn:active { transform: translateY(5px); box-shadow: 0 5px 0 #7f0000; }
+
+        @keyframes blink { 50% { opacity: 0.5; } }
+        
+        .float-text { position: absolute; font-weight: bold; pointer-events: none; animation: floatUp 1s forwards; font-size: 1.5rem; text-shadow: 1px 1px 0 #000; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-50px); } }
+
+        /* ستايل العداد */
+        .live-counter {
+            margin-top: 25px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 25px;
+            border-radius: 12px;
+            border: 2px solid #4CAF50;
+            text-align: center;
+            animation: pulseBorder 2s infinite;
+        }
+        .live-counter span { display: block; color: #ccc; font-size: 0.9rem; margin-bottom: 5px; }
+        .live-counter strong { color: #4CAF50; font-size: 1.8rem; font-family: monospace; letter-spacing: 2px; }
+        @keyframes pulseBorder {
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+
+        /* ستايل اللوجوهات في شاشة البداية (واضحين) */
+        .logos-container {
+            margin-top: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .restaurant-logo { width: 150px; height: auto; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5)); }
+        .developer-logo { width: 90px; height: auto; opacity: 0.9; }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="ui-layer">
+        <div class="hud-top">
+            <div class="timer-box">⏱️ <span id="timerDisplay">60</span></div>
+            <div class="score-box"><span id="scoreDisplay">0</span></div>
+        </div>
+        <div id="multiplierBadge">X2 SCORE!</div>
+
+        <div class="watermark-container">
+            <img src="logo2.png" class="wm-logo" alt="Dev Logo">
+            <img src="logo.png" class="wm-logo main" alt="Restaurant Logo">
+        </div>
+        </div>
+
+    <div id="startScreen" class="screen">
+
+        <p>قطع السندوتشات.. دمر الوقت!</p>
+        
+        <button class="btn" onclick="startGame()">العب يا وحش</button>
+
+        <div class="live-counter">
+            <span>لاعبين دمروا الوقت</span>
+            <strong id="visitorCount">1,000</strong>
+        </div>
+
+        <div class="logos-container">
+            <img src="logo.png" alt="Restaurant Logo" class="restaurant-logo">
+            <img src="logo2.png" alt="Developer Logo" class="developer-logo">
+        </div>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+        <h1 id="endTitle" style="color: #f44336;">الوقت خلص!</h1>
+        <p>السكور النهائي: <span id="finalScore" style="color:#ffeb3b; font-size: 2rem;">0</span></p>
+        <button class="btn" onclick="startGame()">العب تاني ↻</button>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // --- Audio System ---
+    const sounds = {
+        bgm: new Audio('bgm.mp3'),
+        slice: new Audio('slice.mp3'),
+        boom: new Audio('boom.mp3'),
+        powerup: new Audio('powerup.mp3'),
+        gameover: new Audio('gameover.mp3'),
+        click: new Audio('click.mp3')
+    };
+
+    sounds.bgm.loop = true; 
+    sounds.bgm.volume = 0.5; 
+
+    function playSound(name) {
+        if(sounds[name]) {
+            sounds[name].currentTime = 0; 
+            sounds[name].play().catch(() => {}); 
+        }
+    }
+
+    // --- كود العداد ---
+    (function initCounter() {
+        const countEl = document.getElementById('visitorCount');
+        let currentCount = localStorage.getItem('ninja_visits_new');
+        if (!currentCount) { currentCount = 1000; } 
+        else { currentCount = parseInt(currentCount); }
+
+        function updateDisplay() { countEl.innerText = currentCount.toLocaleString('en-US'); }
+        updateDisplay();
+
+        setInterval(() => {
+            const increase = Math.floor(Math.random() * 3) + 1;
+            currentCount += increase;
+            localStorage.setItem('ninja_visits_new', currentCount);
+            updateDisplay();
+        }, 3000);
+    })();
+
+    // --- Assets ---
+    const assets = {};
+    const imageSources = {
+        's1': '1.png', 's2': '2.png', 's3': '3.png', 's4': '4.png', 's5': '5.png',
+        'boom': 'boom.png', 'pepper': 'pepper.png', 'clock': 'clock.png', 'x2': 'x2.png'
+    };
+    Object.keys(imageSources).forEach(key => {
+        const img = new Image(); img.src = imageSources[key];
+        assets[key] = { img: img, loaded: false };
+        img.onload = () => assets[key].loaded = true;
+    });
+
+    // --- Game Logic ---
+    let width, height;
+    let gameRunning = false;
+    let score = 0;
+    let timeLeft = 60;
+    let scoreMultiplier = 1;
+    let timeScale = 1; 
+    let objects = [];
+    let particles = [];
+    let trail = [];
+    let totalTimeElapsed = 0; 
+    let spawnTimer = 0;
+    let timerInterval;
+    let multiTimer, freezeTimer;
+
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const Types = {
+        SANDWICH: { type: 'good', score: 10, radius: 40, fallbackColor: '#FF9800', images: ['s1','s2','s3','s4','s5'] },
+        BOMB: { type: 'bad', radius: 45, fallbackColor: '#000', imgKey: 'boom' },
+        CLOCK: { type: 'powerup', effect: 'time', radius: 35, fallbackColor: '#03A9F4', imgKey: 'clock', text: '+8s' },
+        MULTI: { type: 'powerup', effect: 'x2', radius: 35, fallbackColor: '#E040FB', imgKey: 'x2', text: 'X2' },
+        PEPPER: { type: 'powerup', effect: 'freeze', radius: 30, fallbackColor: '#F44336', imgKey: 'pepper', text: '❄️' }
+    };
+
+    function getSpawnType() {
+        const bombChance = Math.min(0.05 + (totalTimeElapsed * 0.005), 0.30);
+        const powerupChance = 0.08; 
+        const rand = Math.random();
+        if (rand < bombChance) return Types.BOMB;
+        if (rand < bombChance + powerupChance) {
+            const pRand = Math.random();
+            if (timeLeft < 15 && pRand < 0.6) return Types.CLOCK;
+            if (pRand < 0.33) return Types.CLOCK;
+            if (pRand < 0.66) return Types.MULTI;
+            return Types.PEPPER;
+        }
+        return Types.SANDWICH;
+    }
+
+    class GameObject {
+        constructor() {
+            this.def = getSpawnType();
+            this.x = Math.random() * (width - 100) + 50;
+            this.y = height + 60;
+            const speedBoost = Math.min(totalTimeElapsed * 0.1, 5);
+            this.vx = (width/2 - this.x) * 0.01 + (Math.random()-0.5) * 4;
+            this.vy = -(Math.random() * 5 + 13 + speedBoost); 
+            this.gravity = 0.25;
+            this.rotation = 0;
+            this.rSpeed = (Math.random() - 0.5) * 0.2;
+            if (this.def === Types.SANDWICH) {
+                const randKey = this.def.images[Math.floor(Math.random() * this.def.images.length)];
+                this.asset = assets[randKey];
+            } else {
+                this.asset = assets[this.def.imgKey];
+            }
+            this.active = true;
+        }
+        update() {
+            let dt = timeScale; 
+            this.x += this.vx * dt;
+            this.vy += this.gravity * dt;
+            this.y += this.vy * dt;
+            this.rotation += this.rSpeed * dt;
+            if (this.y > height + 100) this.active = false;
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation);
+            const r = this.def.radius;
+            if (this.asset && this.asset.loaded) {
+                ctx.drawImage(this.asset.img, -r, -r, r*2, r*2);
+            } else {
+                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2);
+                ctx.fillStyle = this.def.fallbackColor; ctx.fill();
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.fillText(this.def.text || '?', 0, 5);
+            }
+            ctx.restore();
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y;
+            this.vx = (Math.random()-0.5)*10; this.vy = (Math.random()-0.5)*10;
+            this.life = 1; this.color = color;
+        }
+        update() {
+            this.x += this.vx * timeScale; this.y += this.vy * timeScale; this.life -= 0.03;
+        }
+        draw() {
+            ctx.globalAlpha = this.life; ctx.fillStyle = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI*2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function handleInput(x, y) {
+        if (!gameRunning) return;
+        trail.push({x, y, life: 8});
+        objects.forEach(obj => {
+            if (!obj.active) return;
+            const dist = Math.hypot(x - obj.x, y - obj.y);
+            if (dist < obj.def.radius) sliceObject(obj);
+        });
+    }
+
+    function sliceObject(obj) {
+        obj.active = false;
+        createParticles(obj.x, obj.y, obj.def.fallbackColor);
+
+        if (obj.def.type === 'bad') {
+            playSound('boom'); 
+            gameOver('BOOM!'); 
+        } 
+        else if (obj.def.type === 'good') {
+            playSound('slice'); 
+            score += (obj.def.score * scoreMultiplier);
+            spawnFloatText(obj.x, obj.y, `+${obj.def.score*scoreMultiplier}`, '#fff');
+        }
+        else if (obj.def.type === 'powerup') {
+            playSound('powerup'); 
+            if (obj.def.effect === 'time') {
+                timeLeft += 8;
+                spawnFloatText(obj.x, obj.y, '+8 sec', '#03A9F4');
+            }
+            if (obj.def.effect === 'x2') {
+                activateMultiplier();
+                spawnFloatText(obj.x, obj.y, 'X2 Active!', '#E040FB');
+            }
+            if (obj.def.effect === 'freeze') {
+                activateFreeze();
+                spawnFloatText(obj.x, obj.y, 'Freeze!', '#F44336');
+            }
+        }
+        updateHUD();
+    }
+
+    function createParticles(x, y, color) { for(let i=0; i<10; i++) particles.push(new Particle(x, y, color)); }
+    function spawnFloatText(x, y, text, color) {
+        const el = document.createElement('div'); el.className = 'float-text';
+        el.innerText = text; el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.color = color;
+        document.body.appendChild(el); setTimeout(() => el.remove(), 1000);
+    }
+
+    function activateMultiplier() {
+        scoreMultiplier = 2;
+        document.getElementById('multiplierBadge').style.display = 'block';
+        clearTimeout(multiTimer);
+        multiTimer = setTimeout(() => { scoreMultiplier = 1; document.getElementById('multiplierBadge').style.display = 'none'; }, 10000);
+    }
+
+    function activateFreeze() {
+        timeScale = 0.1; canvas.style.filter = "grayscale(50%)";
+        clearTimeout(freezeTimer);
+        freezeTimer = setTimeout(() => { timeScale = 1; canvas.style.filter = "none"; }, 5000);
+    }
+
+    function loop() {
+        if (!gameRunning) return;
+        ctx.clearRect(0,0,width,height);
+        if (trail.length > 1) {
+            ctx.beginPath(); ctx.moveTo(trail[0].x, trail[0].y);
+            for(let i=1; i<trail.length; i++) ctx.lineTo(trail[i].x, trail[i].y);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+            ctx.shadowBlur = 10; ctx.shadowColor = '#fff'; ctx.stroke(); ctx.shadowBlur = 0;
+        }
+        for(let i=0; i<trail.length; i++) { trail[i].life--; if(trail[i].life <= 0) { trail.splice(i,1); i--; } }
+
+        spawnTimer++;
+        const currentSpawnRate = Math.max(20, 60 - (totalTimeElapsed * 0.5)); 
+        if (spawnTimer > (currentSpawnRate / timeScale)) {
+            objects.push(new GameObject());
+            spawnTimer = 0;
+        }
+        objects.forEach(o => { if(o.active) { o.update(); o.draw(); } });
+        particles.forEach(p => { p.update(); p.draw(); });
+        objects = objects.filter(o => o.active);
+        particles = particles.filter(p => p.life > 0);
+        requestAnimationFrame(loop);
+    }
+
+    function updateHUD() {
+        document.getElementById('scoreDisplay').innerText = score;
+        const tDiv = document.getElementById('timerDisplay');
+        tDiv.innerText = Math.ceil(timeLeft);
+        if(timeLeft <= 10) tDiv.classList.add('timer-warning');
+        else tDiv.classList.remove('timer-warning');
+    }
+
+    function startGame() {
+        playSound('click'); 
+        sounds.bgm.play().catch(() => {}); 
+
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        
+        gameRunning = true;
+        score = 0;
+        timeLeft = 60;
+        totalTimeElapsed = 0;
+        scoreMultiplier = 1;
+        timeScale = 1;
+        objects = [];
+        particles = [];
+        trail = [];
+        
+        document.getElementById('multiplierBadge').style.display = 'none';
+        canvas.style.filter = "none";
+        updateHUD();
+
+        loop();
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if(gameRunning) {
+                timeLeft -= 0.1;
+                totalTimeElapsed += 0.1;
+                if(Math.floor(timeLeft * 10) % 10 === 0) updateHUD();
+                if(timeLeft <= 0) gameOver("الوقت خلص!");
+            }
+        }, 100);
+    }
+
+    function gameOver(reason) {
+        gameRunning = false;
+        
+        sounds.bgm.pause(); 
+        sounds.bgm.currentTime = 0; 
+        playSound('gameover'); 
+
+        clearInterval(timerInterval); clearTimeout(multiTimer); clearTimeout(freezeTimer);
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+        document.getElementById('endTitle').innerText = reason || "Game Over";
+        document.getElementById('finalScore').innerText = score;
+    }
+
+    window.addEventListener('mousemove', e => handleInput(e.clientX, e.clientY));
+    window.addEventListener('touchmove', e => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+</script>
+</body>
+</html>
