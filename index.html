@@ -16,7 +16,7 @@
         }
         
         /* طبقة الواجهة (UI) */
-        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         
         .hud-top { display: flex; justify-content: space-between; padding: 20px; color: white; font-weight: 900; text-shadow: 2px 2px 0 #000; }
         .score-box { font-size: 2.5rem; color: #ffeb3b; }
@@ -30,26 +30,29 @@
             font-size: 1.5rem; color: white; display: none; border: 2px solid white;
         }
 
-        /* --- ستايل العلامة المائية داخل اللعب --- */
+        /* --- ستايل العلامة المائية (تم التعديل: تحت بعض) --- */
         .watermark-container {
             position: absolute;
-            bottom: 15px;
+            top: 50%;            
+            left: 0;
             width: 100%;
+            transform: translateY(-50%); 
             display: flex;
-            justify-content: space-between; /* يوزعهم واحد يمين وواحد شمال */
-            padding: 0 20px;
-            box-sizing: border-box;
-            opacity: 0.3; /* شفافية خفيفة جداً */
-            z-index: 5; 
+            flex-direction: column; /* دي اللي خلتهم تحت بعض */
+            justify-content: center; 
+            align-items: center;
+            gap: 20px;           /* قللت المسافة بينهم شوية */
+            opacity: 0.5;       
+            z-index: 1;         
+            pointer-events: none; 
         }
         
         .wm-logo {
-            height: 70px; /* حجم اللوجو المائي */
+            height: 100px; 
             width: auto;
-            filter: grayscale(30%); /* تقليل الألوان عشان ميسحبش العين */
+            filter: grayscale(20%); 
         }
-        /* تكبير لوجو المطعم شوية عن المطور */
-        .wm-logo.main { height: 90px; }
+        .wm-logo.main { height: 130px; }
 
         /* شاشات البداية والنهاية */
         .screen { 
@@ -101,7 +104,7 @@
             100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
         }
 
-        /* ستايل اللوجوهات في شاشة البداية (واضحين) */
+        /* ستايل اللوجوهات في شاشة البداية */
         .logos-container {
             margin-top: 25px;
             display: flex;
@@ -128,10 +131,10 @@
             <img src="logo2.png" class="wm-logo" alt="Dev Logo">
             <img src="logo.png" class="wm-logo main" alt="Restaurant Logo">
         </div>
-        </div>
+    </div>
 
     <div id="startScreen" class="screen">
-
+   
         <p>قطع السندوتشات.. دمر الوقت!</p>
         
         <button class="btn" onclick="startGame()">العب يا وحش</button>
